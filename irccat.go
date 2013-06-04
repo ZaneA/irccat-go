@@ -21,7 +21,7 @@ var server = flag.String("server", "", "Server to send to (e.g. chat.freenode.ne
 // debug prints a formatted string when the verbose flag is true.
 func debug(format string, v ...interface{}) {
 	if *verbose {
-		fmt.Printf(format, v...)
+		fmt.Printf(format+"\n", v...)
 	}
 }
 
@@ -29,7 +29,7 @@ func debug(format string, v ...interface{}) {
 func send(conn net.Conn, format string, v ...interface{}) {
 	debug("> "+format, v...)
 
-	fmt.Fprintf(conn, format, v...)
+	fmt.Fprintf(conn, format+"\r\n", v...)
 	time.Sleep(700 * time.Millisecond) // Wait a bit so we don't flood
 }
 
@@ -38,7 +38,7 @@ func sendMessage(conn net.Conn, dest string, s string) {
 	parts := strings.Split(s, "\n")
 	for i := 0; i < len(parts); i++ {
 		if parts[i] != "" {
-			send(conn, "NOTICE %s :%s\r\n", dest, parts[i])
+			send(conn, "NOTICE %s :%s", dest, parts[i])
 		}
 	}
 }
@@ -67,7 +67,7 @@ func main() {
 
 	message := string(messageBytes)
 
-	debug("Connecting to %s\n", *server)
+	debug("Connecting to %s", *server)
 
 	// "Dial" the connection to the server.
 	conn, err := net.Dial("tcp", *server)
@@ -80,8 +80,8 @@ func main() {
 	r := bufio.NewReader(conn)
 
 	// Introduce ourselves to the server.
-	send(conn, "NICK %s\r\n", *nick)
-	send(conn, "USER %s * * :%s\r\n", *nick, *nick)
+	send(conn, "NICK %s", *nick)
+	send(conn, "USER %s * * :%s", *nick, *nick)
 
 	for {
 		// Read in a line at a time.
@@ -90,6 +90,8 @@ func main() {
 		if err != nil {
 			break
 		}
+		
+		line = strings.TrimRight(line, "\r\n")
 
 		debug("< %s", line)
 
@@ -98,12 +100,12 @@ func main() {
 			// Is the destination a channel?
 			if strings.HasPrefix(*dest, "#") || strings.HasPrefix(*dest, "&") ||
 				strings.HasPrefix(*dest, "!") || strings.HasPrefix(*dest, "+") {
-				send(conn, "JOIN %s\r\n", *dest)
+				send(conn, "JOIN %s", *dest)
 			}
 
 			sendMessage(conn, *dest, message)
 
-			send(conn, "QUIT :irccat v0.1\r\n")
+			send(conn, "QUIT :irccat")
 			break
 		}
 	}
